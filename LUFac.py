@@ -1,4 +1,4 @@
-def lu_decomposition(A):
+def lu_decomposition(A, pivot=False):
     n = len(A)
 
     L = []      # สร้างเมทริกซ์ L เป็นเมทริกซ์เอกลักษณ์
@@ -15,22 +15,51 @@ def lu_decomposition(A):
     for i in range(n):
         U.append(A[i][:])
 
+    P = None    # สร้างเวกเตอร์มาสลับแถวถ้าเลือกใช้ pivot
+    if pivot:
+        P = []
+        for i in range(n):
+            P.append(i)
+
     for i in range(n):
+        if pivot:               # สลับแถวเอาเลขมากสุดมาหาร
+            max_row = i
+            for k in range(i + 1, n):
+                if abs(U[k][i]) > abs(U[max_row][i]):
+                    max_row = k
+
+            if i != max_row:
+                U[i], U[max_row] = U[max_row], U[i]     # สลับแถวใน U
+                P[i], P[max_row] = P[max_row], P[i]     # สลับแถวใน P
+                for j in range(i):
+                    L[i][j], L[max_row][j] = L[max_row][j], L[i][j] # สลับแถวใน L ที่อยู่ก่อนหน้า
+
+        if abs(U[i][i]) < 1e-10:    # เช็คว่าตัวหารเป็น 0 ในเส้นทแยงมุมมั้ย
+            return None, None, None # ถ้าใช่ = แก้สมการไม่ได้ คืนค่า None ทั้งสามตัว
+        
         for k in range(i + 1, n):
             factor = U[k][i] / U[i][i]      # หาตัวคูณเพื่อลบให้เป็น 0 ไปเก็บใน L
             L[k][i] = factor
             for j in range(i, n):
                 U[k][j] -= factor * U[i][j] # row operation เพื่อลบให้เป็น 0
 
-    return L, U
+    return L, U, P
 
 
-def solve_lu(L, U, b):
+def solve_lu(L, U, b, P=None):
     if L is None or U is None:
         print("LU decomposition failed.")
         return None
     
     n = len(L)
+
+    if P is not None:
+        b_permuted = []     # สร้าง b ที่ถูกสลับแถวตาม P
+        for i in range(n):
+            b_permuted.append(b[P[i]])  # เอา b แถวที่ถูกสลับมาใส่
+    else:
+        b_permuted = b[:]   # ไม่สลับ = ใช้ b เดิม
+    
     y = [0] * n
     x = [0] * n
 
@@ -39,7 +68,7 @@ def solve_lu(L, U, b):
         sum = 0
         for j in range(i):
             sum += L[i][j] * y[j]       # บวกผลคูณ L กับ y ที่หาได้ก่อนหน้า
-        y[i] = b[i] - sum               # หาค่า y โดยเอา b ลบผลรวมที่ได้
+        y[i] = b_permuted[i] - sum      # หาค่า y โดยเอา b ลบผลรวมที่ได้
     
     # Backward Substitution: หา x จาก Ux = y
     for i in range(n - 1, -1, -1):      # วนแถวย้อนกลับล่างขึ้นบน
@@ -51,8 +80,8 @@ def solve_lu(L, U, b):
     return x
 
 
-def answer(A, b):
-    L, U = lu_decomposition(A)
+def answer(A, b, pivot=False):
+    L, U, P = lu_decomposition(A, pivot=pivot)
     
     if L is None:
         print("Matrix decomposition failed.")
@@ -72,8 +101,12 @@ def answer(A, b):
             value.append(round(i, 2))
         print(value)
     print()
+
+    if P is not None:
+        print("Permutation Vector P:", P)
+        print()
     
-    x = solve_lu(L, U, b)
+    x = solve_lu(L, U, b, P)
     if x is not None:
         print("x:")
         for i in x:
